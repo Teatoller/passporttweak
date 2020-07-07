@@ -16,8 +16,10 @@ class MeController extends Controller
     public function getMe()
     {
         if (auth()->check()) {
+            // return response()->json(["user" => auth()->user()], 200);
             $user = auth()->user();
             return new UserResource($user);
+            // return "me may ho!!!!";
         }
         return response()->json(null, 401);
     }

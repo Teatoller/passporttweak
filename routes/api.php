@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 
 // Public routes
 
-Route::get('me', "User\MeController@getMe");
+
 
 // Route group for authenticated users
 Route::group([
@@ -24,6 +24,7 @@ Route::group([
 
 ], function () {
     Route::post('logout', 'Auth\LoginController@logout');
+    Route::get('me', "User\MeController@getMe");
 
 });
 

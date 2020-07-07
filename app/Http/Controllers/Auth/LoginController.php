@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use Carbon\Carbon;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Laravel\Passport\Bridge\AccessToken;
 
 class LoginController extends Controller
 {
@@ -31,9 +34,9 @@ class LoginController extends Controller
      */
     public function attemptLogin(Request $request)
     {
-        $token = $this->guard()->attempt($this->credentials($request));
+        $valid = $this->guard()->attempt($this->credentials($request));
 
-        if (!$token) {
+        if (!$valid) {
             return false;
         }
 
@@ -41,13 +44,19 @@ class LoginController extends Controller
 
         $user = $this->guard()->user();
 
+        $data1 = $user->email;
+        $data2 = $user->password;
+        $loginData= (['email'=> $data1, 'password'=>$data2]);
+
         if ($user instanceof MustVerifyEmail && !$user->hasVerifiedEmail()) {
             return false;
         }
-
-        // set the users token
-
-        $this->guard()->setToken($token);
+        //
+        if (!Auth::attempt($loginData)) {
+            return response()->json([
+                'message' => "Unauthorized.",
+            ], 401);
+        }
 
         return true;
     }
@@ -62,16 +71,21 @@ class LoginController extends Controller
     {
         $this->clearLoginAttempts($request);
 
-        // get token from the authentication guard
-        $token = (string) $this->guard()->getToken();
+        $user = $this->guard()->user();
 
-        // extract the expiry date of the token
-        $expiration = $this->guard()->getPayload()->get('exp');
+        $tokenResult = $user->createToken('Personal Access Token');
 
-        return response()->json([
-            'token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => $expiration,
+        $token = $tokenResult->token;
+        if ($request->remember_me) {
+            $token->expires_at = Carbon::now()->addWeeks(1);
+        }
+        // dd($user);
+
+        $token->save();
+
+        return response([
+            'user' => auth()->user(),
+            'access_token' => $tokenResult->accessToken,
         ]);
     }
 
@@ -107,8 +121,15 @@ class LoginController extends Controller
      */
     public function logout(Request $request)
     {
-        $this->guard()->logout();
+        // $this->guard()->logout();
 
-        return response()->json(['message' => 'Successfully logged out']);
+        // return response()->json(['message' => 'Successfully logged out']);
+
+        $accessToken = $request->user()->token();
+        $accessToken->revoke();
+
+        return response()->json([
+            'message' => 'You have been succesfully logged out',
+        ]);
     }
 }
